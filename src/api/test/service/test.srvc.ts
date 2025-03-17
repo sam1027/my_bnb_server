@@ -16,7 +16,6 @@ export const testService = async (name :string) => {
     try {
         await poolClient.query('BEGIN');;
         const result = await poolClient.query(sql, [name]); 
-        customLogger.customedInfo('test');
         await poolClient.query('COMMIT');
         return result.rows
     } catch (error) {
@@ -38,7 +37,7 @@ export const testPostService = async (id:number, name :string) => {
             , $2
         )
         `
-        
+
     try {
         await poolClient.query('BEGIN');;
         const result = await poolClient.query(sql, [id,name]); 
