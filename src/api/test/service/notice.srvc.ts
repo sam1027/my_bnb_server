@@ -11,6 +11,7 @@ export const selectNoticeService = async () => {
             , writer
             , date
         FROM tb_notice
+        order by id desc
         `
     try {
         await poolClient.query('BEGIN');
