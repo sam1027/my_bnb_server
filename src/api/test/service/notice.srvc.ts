@@ -11,6 +11,7 @@ export const selectNoticeService = async () => {
             , writer
             , date
         FROM tb_notice
+        where del_yn = 'N'
         order by id desc
         `
     try {
@@ -22,6 +23,7 @@ export const selectNoticeService = async () => {
     } catch (error) {
         customLogger.customedError(`Select Notice Service Error`)
         await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
     }finally{
         poolClient.release();
     }
@@ -40,16 +42,38 @@ export const insertNoticeService = async (param:TNoticeData) => {
             , $3
         )
         `
-        
     try {
-        await poolClient.query('BEGIN');;
+        await poolClient.query('BEGIN');
         const result = await poolClient.query(sql, [param.title, param.writer, param.date]); 
         customLogger.customedInfo('Insert Notice Service');
         await poolClient.query('COMMIT');
-        return result.rows
+        return result.rowCount
     } catch (error) {
         customLogger.customedError(`Insert Notice Service Error`)
         await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+
+export const deleteNoticeService = async (ids:string[]) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        UPDATE tb_notice 
+        SET del_yn = 'Y'
+        WHERE id = ANY($1)
+        `
+    try {
+        await poolClient.query('BEGIN');
+        const result = await poolClient.query(sql, [ids]); 
+        customLogger.customedInfo('Delete Notice Service');
+        await poolClient.query('COMMIT');
+        return result.rowCount
+    } catch (error) {
+        customLogger.customedError(`Delete Notice Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
     }finally{
         poolClient.release();
     }
