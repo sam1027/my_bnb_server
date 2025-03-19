@@ -44,3 +44,5 @@ pg_ident.conf
 
 .env
 package-lock.json
+
+ecosystem.config.js
