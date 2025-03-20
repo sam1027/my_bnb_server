@@ -1,26 +1,20 @@
-# 1️⃣ 경량 Node.js LTS 버전 사용
-FROM node:18-alpine
+# Node.js 18 LTS 기반 이미지 사용
+FROM node:18
 
-# 2️⃣ 작업 디렉토리 설정
+# 컨테이너 작업 디렉토리 설정
 WORKDIR /app
 
-RUN pwd
-
-# 3️⃣ package.json과 package-lock.json 복사
+# package.json 및 package-lock.json 복사
 COPY package*.json ./
 
-RUN pwd
+# 의존성 설치
+RUN npm install
 
-# 4️⃣ PM2 글로벌 설치 & 의존성 설치
-RUN npm install -g pm2 && npm install
+# 소스 코드 복사
+COPY . .  
 
-# 5️⃣ 소스 코드 복사
-COPY . .
+# TypeScript 프로젝트라면 빌드 실행
+RUN npm run build
 
-RUN pwd
-
-# 6️⃣ 컨테이너에서 실행될 포트 설정
-EXPOSE 3000
-
-# 7️⃣ PM2를 사용하여 애플리케이션 실행
-CMD ["pm2-runtime", "start", "src/index.js", "--name", "practice-node-api"]
+# PM2로 실행
+CMD ["npx", "pm2-runtime", "dist/index.js"]
