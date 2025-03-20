@@ -31,10 +31,6 @@ client.connect(err => {
 
 
 const app = new Koa();
-app.use(async (ctx) => {
-    ctx.body = "Hello PM2!";
-  });
-  
 app.use(serve(__dirname + '/public'));
 
 
