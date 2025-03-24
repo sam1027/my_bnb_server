@@ -25,7 +25,7 @@ export const insertRoomService = async (body:any, files:any) => {
             , $7
             , $8
         )
-        RETURNING room_id
+        RETURNING id
         `;
 
     const fileInsertSql = `
@@ -61,7 +61,7 @@ export const insertRoomService = async (body:any, files:any) => {
             , body.detailAddress
         ]); 
 
-        const roomId = roomResult.rows[0].room_id; // 방금 등록된 room_id
+        const roomId = roomResult.rows[0].id; // 방금 등록된 room_id
 
         // 2. 이미지 정보 등록
         if(files && files.length > 0){
