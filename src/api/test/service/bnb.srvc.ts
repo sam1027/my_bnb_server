@@ -3,9 +3,9 @@ import { customLogger } from "@utils/lib/winston";
 import { IRoom } from "@utils/type/room";
 
 // 숙박업소 신규 등록
-export const insertRoomService = async (param:IRoom) => {
+export const insertRoomService = async (body:any, files:any) => {
     const poolClient = await pool.connect();
-    let sql = `
+    const roomInsertSql = `
         INSERT INTO mybnb.tb_room (
             title
             , content
@@ -25,22 +25,61 @@ export const insertRoomService = async (param:IRoom) => {
             , $7
             , $8
         )
-        `
+        RETURNING room_id
+        `;
+
+    const fileInsertSql = `
+        INSERT INTO mybnb.tb_files (
+            room_id
+            , file_origin_name
+            , file_name
+            , file_url
+            , file_size
+            , file_type
+        )VALUES(
+            $1
+            , $2
+            , $3
+            , $4
+            , $5
+            , $6
+        )
+    `;
+
     try {
         await poolClient.query('BEGIN');
-        const result = await poolClient.query(sql, [
-            param.title
-            , param.content
-            , param.price
+
+        // 1. 숙소 정보 등록
+        const roomResult = await poolClient.query(roomInsertSql, [
+            body.title
+            , body.content
+            , body.price
             , 1 // 임시로 1번 유저로 고정
-            , param.lat
-            , param.lon
-            , param.address
-            , param.detailAddress
+            , body.lat
+            , body.lon
+            , body.address
+            , body.detailAddress
         ]); 
+
+        const roomId = roomResult.rows[0].room_id; // 방금 등록된 room_id
+
+        // 2. 이미지 정보 등록
+        if(files && files.length > 0){
+            for(const file of files){
+                await poolClient.query(fileInsertSql, [
+                    roomId
+                    , file.originalname
+                    , file.filename
+                    , file.path
+                    , file.size
+                    , file.mimetype
+                ])
+            }
+        }
+
         customLogger.customedInfo('Insert Room Service');
         await poolClient.query('COMMIT');
-        return result.rowCount
+        return roomId;
     } catch (error) {
         customLogger.customedError(`Insert Room Service Error`)
         await poolClient.query('ROLLBACK');
