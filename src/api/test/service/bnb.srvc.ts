@@ -88,3 +88,47 @@ export const insertRoomService = async (body:any, files:any) => {
         poolClient.release();
     }
 }
+
+// 숙박업소 목록 조회
+export const selectRoomsService = async (id?: string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        select 
+            id
+            , title
+            , content
+            , price
+            , reg_id
+            , lat
+            , lon
+            , address
+            , address_dtl
+        from mybnb.tb_room
+        `;
+
+    let param : any[] = [];
+
+    if(id){
+        sql += 'where id = $1';
+        param.push(id);
+    }
+
+    sql += 'order by id desc';
+
+    try {
+        await poolClient.query('BEGIN');
+
+        // 1. 숙소 정보 등록
+        const result = await poolClient.query(sql, param); 
+
+        customLogger.customedInfo('Select Room Service');
+        await poolClient.query('COMMIT');
+        return result.rows as IRoom[];
+    } catch (error) {
+        customLogger.customedError(`Select Room Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}

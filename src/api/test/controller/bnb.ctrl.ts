@@ -1,4 +1,4 @@
-import { insertRoomService } from '../service/bnb.srvc';
+import { insertRoomService, selectRoomsService } from '../service/bnb.srvc';
 import { Context } from 'koa';
 import { File } from '@koa/multer';
 
@@ -9,5 +9,11 @@ export const insertRoom = async (ctx:Context, next : () => void) => {
     console.log('files:', files);
 
     const result = await insertRoomService(body, files);
+    ctx.body = result;
+}
+
+export const selectRooms = async (ctx:any, next : () => void) => {
+    const { id } = ctx.query; // get, delete 이런 애들은 url?param=파라미터 << 요렇게 붙어 오기 때문에 
+    const result = await selectRoomsService(id);
     ctx.body = result;
 }
