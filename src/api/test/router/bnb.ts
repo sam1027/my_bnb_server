@@ -3,7 +3,7 @@ import * as bnbCtrl from 'api/test/controller/bnb.ctrl';
 import multer from '@koa/multer';
 
 const storage = multer.diskStorage({
-    destination: 'uploads/',
+    destination: 'public/uploads/',
     filename: (req:any, file:any, cb:any) => {
       cb(null, Date.now() + '-' + file.originalname);
     },

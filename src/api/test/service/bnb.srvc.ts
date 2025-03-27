@@ -58,7 +58,7 @@ export const insertRoomService = async (body:any, files:any) => {
             , body.lat
             , body.lon
             , body.address
-            , body.detailAddress
+            , body.address_dtl
         ]); 
 
         const roomId = roomResult.rows[0].id; // 방금 등록된 room_id
@@ -92,6 +92,7 @@ export const insertRoomService = async (body:any, files:any) => {
 // 숙박업소 목록 조회
 export const selectRoomsService = async (id?: string) => {
     const poolClient = await pool.connect();
+    // 숙박업소 목록 조회
     let sql = `
         select 
             r.id
@@ -120,15 +121,35 @@ export const selectRoomsService = async (id?: string) => {
 
     sql += 'order by r.id desc';
 
+    // 파일 목록 조회
+    let fileSql = `
+        select f.id file_id
+            , f.room_id 
+            , f.file_name 
+            , f.file_url 
+            , f.file_origin_name 
+            , f.file_size 
+            , f.file_type 
+        from mybnb.tb_files f
+        where f.room_id = $1
+        order by f.id
+    `;
+
     try {
         await poolClient.query('BEGIN');
 
-        // 1. 숙소 정보 등록
         const result = await poolClient.query(sql, param); 
+
+        const enrichedRooms = await Promise.all(
+            result.rows.map(async (room) => {
+              const fileRslt = await poolClient.query(fileSql, [room.id]);
+              return { ...room, images: fileRslt.rows || [] };
+            })
+        );
 
         customLogger.customedInfo('Select Room Service');
         await poolClient.query('COMMIT');
-        return result.rows as IRoom[];
+        return enrichedRooms as IRoom[];
     } catch (error) {
         customLogger.customedError(`Select Room Service Error`)
         await poolClient.query('ROLLBACK');
