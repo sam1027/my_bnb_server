@@ -17,4 +17,7 @@ const bnb = new Router();
 bnb.post('/', upload.array('images', 10), bnbCtrl.insertRoom);
 bnb.get('/', bnbCtrl.selectRooms);
 
+bnb.post('/favorite', bnbCtrl.toggleFavoriteRoom);
+
+
 export default bnb;

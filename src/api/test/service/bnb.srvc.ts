@@ -94,26 +94,31 @@ export const selectRoomsService = async (id?: string) => {
     const poolClient = await pool.connect();
     let sql = `
         select 
-            id
-            , title
-            , content
-            , price
-            , reg_id
-            , lat
-            , lon
-            , address
-            , address_dtl
-        from mybnb.tb_room
+            r.id
+            , r.title
+            , r.content
+            , r.price
+            , r.reg_id
+            , r.lat
+            , r.lon
+            , r.address
+            , r.address_dtl
+            , case
+                when f.room_id is not null then true 
+                else false
+                end as liked
+        from mybnb.tb_room r
+        left join mybnb.tb_favorite f on r.id = f.room_id and r.reg_id = f.user_id
         `;
 
     let param : any[] = [];
 
     if(id){
-        sql += 'where id = $1';
+        sql += 'where r.id = $1';
         param.push(id);
     }
 
-    sql += 'order by id desc';
+    sql += 'order by r.id desc';
 
     try {
         await poolClient.query('BEGIN');
@@ -126,6 +131,59 @@ export const selectRoomsService = async (id?: string) => {
         return result.rows as IRoom[];
     } catch (error) {
         customLogger.customedError(`Select Room Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+
+// 좋아요 설정/해제 처리
+export const toggleFavoriteRoomService = async (body:any) => {
+    const poolClient = await pool.connect();
+
+    const SELECT_SQL = `
+        SELECT 1 FROM mybnb.tb_favorite 
+        WHERE room_id = $1 AND user_id = $2
+    `;
+
+    const DELETE_SQL = `
+        DELETE FROM mybnb.tb_favorite 
+        WHERE room_id = $1 AND user_id = $2
+    `;
+
+    const INSERT_SQL = `
+        INSERT INTO mybnb.tb_favorite (room_id, user_id)
+        VALUES ($1, $2)
+    `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const existsResult = await poolClient.query(SELECT_SQL, [
+            body.roomId,
+            1, // 실제 유저 ID로 교체
+        ]);
+
+        let result;
+        if (Number(existsResult.rowCount) > 0) {
+            result = await poolClient.query(DELETE_SQL, [
+              body.roomId,
+              1,
+            ]);
+            customLogger.customedInfo('toggleFavoriteRoomService - 찜 삭제 (UNFAVORITE)');
+        } else {
+            result = await poolClient.query(INSERT_SQL, [
+              body.roomId,
+              1,
+            ]);
+            customLogger.customedInfo('toggleFavoriteRoomService - 찜 등록 (FAVORITE)');
+        }
+
+        await poolClient.query('COMMIT');
+        return result.rowCount;
+    } catch (error) {
+        customLogger.customedError(`Insert Room Service Error`)
         await poolClient.query('ROLLBACK');
         throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
     }finally{
