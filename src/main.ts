@@ -32,7 +32,7 @@ client.connect(err => {
 
 
 const app = new Koa();
-app.use(require('koa-mount')('/uploads', serve(path.join(__dirname, '../public/uploads'))));
+app.use(require('koa-mount')('/public/uploads', serve(path.join(__dirname, '../public/uploads'))));
 app.use(serve(path.join(__dirname, '../public'))); // 실제 파일 시스템 경로
 
 const router = new Router();
