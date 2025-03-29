@@ -6,6 +6,7 @@ import bodyParser from 'koa-bodyparser';
 import cors from '@koa/cors'
 import serve from 'koa-static';
 import path from "path";
+import fs from 'fs';
 
 import api from "@routes/router";
 
@@ -31,12 +32,17 @@ client.connect(err => {
 
 
 const app = new Koa();
-app.use(serve(__dirname + '/public'));
-
+app.use(require('koa-mount')('/public/uploads', serve(path.join(__dirname, '../public/uploads'))));
+app.use(serve(path.join(__dirname, '../public'))); // 실제 파일 시스템 경로
 
 const router = new Router();
 router.use(api.routes()); // api 라우트 적용
 
+
+const uploadPath = path.join(__dirname, '../public/uploads');
+if (!fs.existsSync(uploadPath)) {
+  fs.mkdirSync(uploadPath, { recursive: true });
+}
 
 //특정 도메인
 const options = {
