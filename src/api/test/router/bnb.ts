@@ -20,6 +20,7 @@ bnb.get('/', bnbCtrl.selectRooms);
 bnb.get('/detail', bnbCtrl.selectRoomDetail);
 bnb.post('/favorite', bnbCtrl.toggleFavoriteRoom);
 bnb.get('/codes', bnbCtrl.selectCodes);
-
+bnb.post('/review', bnbCtrl.insertReview);
+bnb.get('/review', bnbCtrl.selectReviews);
 
 export default bnb;

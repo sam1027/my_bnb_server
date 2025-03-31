@@ -321,7 +321,7 @@ export const selectCodesService = async (code_group_id:string) => {
         from mybnb.tb_code
         where code_group_id = $1
         and use_yn = true
-        order by code_order;
+        order by code_order
         `;
 
     try {
@@ -341,3 +341,77 @@ export const selectCodesService = async (code_group_id:string) => {
         poolClient.release();
     }
 };
+
+// 후기 등록
+export const insertReviewService = async (body:any) => {
+    const poolClient = await pool.connect();
+    const sql = `
+        INSERT INTO mybnb.tb_rating (
+            room_id
+            , reg_id
+            , rating
+            , comment
+        )VALUES(
+            $1
+            , $2
+            , $3
+            , $4
+        )
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [
+            body.room_id
+            , body.reg_id
+            , body.rating
+            , body.comment
+        ]); 
+
+        customLogger.customedInfo('Insert Review Service');
+        await poolClient.query('COMMIT');
+        return result.rowCount;
+    } catch (error) {
+        customLogger.customedError(`Insert Review Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+
+// 후기 목록 조회
+export const selectReviewsService = async (room_id:string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        select r.id
+            , r.room_id
+            , r.reg_id
+            , u.name as reg_name
+            , r.rating
+            , r.comment
+            , to_char(r.updated_at, 'YYYY-MM-DD') as updated_at 
+        from mybnb.tb_rating r
+        left join mybnb.tb_user u on u.id = r.reg_id
+        where r.room_id = $1
+        order by id desc
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [room_id]); 
+
+        customLogger.customedInfo('Select Reviews Service');
+
+        await poolClient.query('COMMIT');
+        return result.rows;
+    } catch (error) {
+        customLogger.customedError(`Select Reviews Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
