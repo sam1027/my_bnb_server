@@ -15,6 +15,10 @@ export const insertRoomService = async (body:any, files:any) => {
             , lon
             , address
             , address_dtl
+            , service_fee
+            , cleaning_fee
+            , max_guests
+            , amenities
         )VALUES(
             $1
             , $2
@@ -24,6 +28,10 @@ export const insertRoomService = async (body:any, files:any) => {
             , $6
             , $7
             , $8
+            , $9
+            , $10
+            , $11
+            , $12
         )
         RETURNING id
         `;
@@ -49,6 +57,21 @@ export const insertRoomService = async (body:any, files:any) => {
     try {
         await poolClient.query('BEGIN');
 
+        // 파싱 처리
+        const rawAmenities = body.amenities;
+        let amenities = '';
+        if(typeof rawAmenities === 'string'){
+            try {
+                const arr = JSON.parse(rawAmenities);
+                if(Array.isArray(arr)){
+                    amenities = arr.join(',');
+                }
+            } catch (error) {
+                console.error(`Amenities 파싱 오류 : ${error}`);
+                amenities = '';
+            }
+        }
+
         // 1. 숙소 정보 등록
         const roomResult = await poolClient.query(roomInsertSql, [
             body.title
@@ -59,6 +82,10 @@ export const insertRoomService = async (body:any, files:any) => {
             , body.lon
             , body.address
             , body.address_dtl
+            , body.service_fee
+            , body.cleaning_fee
+            , body.max_guests
+            , amenities
         ]); 
 
         const roomId = roomResult.rows[0].id; // 방금 등록된 room_id
@@ -90,7 +117,7 @@ export const insertRoomService = async (body:any, files:any) => {
 }
 
 // 숙박업소 목록 조회
-export const selectRoomsService = async (id?: string) => {
+export const selectRoomsService = async () => {
     const poolClient = await pool.connect();
     // 숙박업소 목록 조회
     let sql = `
@@ -104,22 +131,17 @@ export const selectRoomsService = async (id?: string) => {
             , r.lon
             , r.address
             , r.address_dtl
+            , r.service_fee
+            , r.cleaning_fee
+            , r.max_guests
+            , r.amenities
             , case
                 when f.room_id is not null then true 
                 else false
                 end as liked
         from mybnb.tb_room r
         left join mybnb.tb_favorite f on r.id = f.room_id and r.reg_id = f.user_id
-        `;
-
-    let param : any[] = [];
-
-    if(id){
-        sql += 'where r.id = $1';
-        param.push(id);
-    }
-
-    sql += 'order by r.id desc';
+        order by r.id desc`;
 
     // 파일 목록 조회
     let fileSql = `
@@ -138,7 +160,7 @@ export const selectRoomsService = async (id?: string) => {
     try {
         await poolClient.query('BEGIN');
 
-        const result = await poolClient.query(sql, param); 
+        const result = await poolClient.query(sql, []); 
 
         const enrichedRooms = await Promise.all(
             result.rows.map(async (room) => {
@@ -152,6 +174,84 @@ export const selectRoomsService = async (id?: string) => {
         return enrichedRooms as IRoom[];
     } catch (error) {
         customLogger.customedError(`Select Room Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+// 숙박업소 상세 조회
+export const selectRoomDetailService = async (id: string) => {
+    const poolClient = await pool.connect();
+    // 숙박업소 목록 조회
+    let sql = `
+        select 
+            r.id
+            , r.title
+            , r.content
+            , r.price
+            , r.reg_id
+            , r.lat
+            , r.lon
+            , r.address
+            , r.address_dtl
+            , r.service_fee
+            , r.cleaning_fee
+            , r.max_guests
+            , r.amenities
+            , case
+                when f.room_id is not null then true 
+                else false
+                end as liked
+        from mybnb.tb_room r
+        left join mybnb.tb_favorite f on r.id = f.room_id and r.reg_id = f.user_id
+        where r.id = $1
+        order by r.id desc`;
+
+    // 파일 목록 조회
+    let fileSql = `
+        select f.id file_id
+            , f.room_id 
+            , f.file_name 
+            , f.file_url 
+            , f.file_origin_name 
+            , f.file_size 
+            , f.file_type 
+        from mybnb.tb_files f
+        where f.room_id = $1
+        order by f.id
+    `;
+
+    // 편의시설 공통코드 목록 조회
+    let amenitiesSql = `
+        select code_id
+            , code_name
+        from mybnb.tb_code
+        where code_group_id = 'AMENITY'
+        and use_yn = true
+        and code_id = ANY($1)
+        order by code_order
+    `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [id]); 
+
+        const enrichedRooms = await Promise.all(
+            result.rows.map(async (room) => {
+              const fileRslt = await poolClient.query(fileSql, [room.id]);
+              const amenitiesArray = room.amenities ? room.amenities.split(',') : [];
+              const amenitiesResult = await poolClient.query(amenitiesSql, [amenitiesArray]);
+              return { ...room, images: fileRslt.rows || [], amenities: amenitiesResult.rows || [] };
+            })
+        );
+
+        customLogger.customedInfo('Select Room Detail Service');
+        await poolClient.query('COMMIT');
+        return enrichedRooms as IRoom[];
+    } catch (error) {
+        customLogger.customedError(`Select Room Detail Service Error`)
         await poolClient.query('ROLLBACK');
         throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
     }finally{
@@ -211,3 +311,33 @@ export const toggleFavoriteRoomService = async (body:any) => {
         poolClient.release();
     }
 }
+
+// 공통코드 목록 조회
+export const selectCodesService = async (code_group_id:string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        select code_id
+            , code_name
+        from mybnb.tb_code
+        where code_group_id = $1
+        and use_yn = true
+        order by code_order;
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [code_group_id]); 
+
+        customLogger.customedInfo('Select Codes Service');
+
+        await poolClient.query('COMMIT');
+        return result.rows;
+    } catch (error) {
+        customLogger.customedError(`Select Codes Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+};
