@@ -77,7 +77,7 @@ export const insertRoomService = async (body:any, files:any) => {
             body.title
             , body.content
             , body.price
-            , 1 // 임시로 1번 유저로 고정
+            , 1 // TODO: 임시로 1번 유저로 고정
             , body.lat
             , body.lon
             , body.address
@@ -283,20 +283,20 @@ export const toggleFavoriteRoomService = async (body:any) => {
 
         const existsResult = await poolClient.query(SELECT_SQL, [
             body.roomId,
-            1, // 실제 유저 ID로 교체
+            1, // TODO: 임시로 1번 유저로 고정
         ]);
 
         let result;
         if (Number(existsResult.rowCount) > 0) {
             result = await poolClient.query(DELETE_SQL, [
               body.roomId,
-              1,
+              1, // TODO: 임시로 1번 유저로 고정
             ]);
             customLogger.customedInfo('toggleFavoriteRoomService - 찜 삭제 (UNFAVORITE)');
         } else {
             result = await poolClient.query(INSERT_SQL, [
               body.roomId,
-              1,
+              1, // TODO: 임시로 1번 유저로 고정
             ]);
             customLogger.customedInfo('toggleFavoriteRoomService - 찜 등록 (FAVORITE)');
         }
@@ -364,7 +364,7 @@ export const insertReviewService = async (body:any) => {
 
         const result = await poolClient.query(sql, [
             body.room_id
-            , body.reg_id
+            , '1' // TODO: 임시로 1번 유저로 고정
             , body.rating
             , body.comment
         ]); 
@@ -409,6 +409,103 @@ export const selectReviewsService = async (room_id:string) => {
         return result.rows;
     } catch (error) {
         customLogger.customedError(`Select Reviews Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+
+// 예약 등록
+export const insertBookingService = async (body:any) => {
+    const poolClient = await pool.connect();
+
+    // 숙소 정보 조회
+    const { rows } = await poolClient.query(`
+        SELECT 
+            id
+            , title
+            , content
+            , price
+            , reg_id
+            , lat
+            , lon
+            , address
+            , address_dtl
+            , service_fee
+            , cleaning_fee
+            , max_guests
+            , amenities
+            , created_at
+            , updated_at
+        FROM mybnb.tb_room
+        WHERE id = $1
+    `, [body.room_id]);
+
+    if (rows.length === 0) {
+        throw new Error('숙소 정보를 찾을 수 없습니다.');
+    }
+
+    const room = rows[0];
+
+    // 스냅샷 만들기
+    const snapshot = {
+        id: room.id,
+        title: room.title,
+        content: room.content,
+        price: room.price,
+        reg_id: room.reg_id,
+        lat: room.lat,
+        lon: room.lon,
+        address: room.address,
+        address_dtl: room.address_dtl,
+        service_fee: room.service_fee,
+        cleaning_fee: room.cleaning_fee,
+        max_guests: room.max_guests,
+        amenities: room.amenities?.split(','),  // 배열로 변환
+        created_at: room.created_at,
+        updated_at: room.updated_at
+    };
+
+    // 예약 등록
+    let inserSql = `
+        INSERT INTO mybnb.tb_booking (
+            room_id
+            , reg_id
+            , checkin_dt
+            , checkout_dt
+            , guest_count
+            , total_price
+            , room_snapshot
+        )VALUES(
+            $1
+            , $2
+            , $3
+            , $4
+            , $5
+            , $6
+            , $7
+        )
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(inserSql, [
+            body.room_id
+            , '1' // TODO: 임시로 1번 유저로 고정
+            , body.checkin_dt
+            , body.checkout_dt
+            , body.guest_count
+            , body.total_price
+            , snapshot]); 
+
+        customLogger.customedInfo('Insert Booking Service');
+
+        await poolClient.query('COMMIT');
+        return result.rowCount;
+    } catch (error) {
+        customLogger.customedError(`Insert Booking Service Error`)
         await poolClient.query('ROLLBACK');
         throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
     }finally{

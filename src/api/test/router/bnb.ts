@@ -22,5 +22,6 @@ bnb.post('/favorite', bnbCtrl.toggleFavoriteRoom);
 bnb.get('/codes', bnbCtrl.selectCodes);
 bnb.post('/review', bnbCtrl.insertReview);
 bnb.get('/review', bnbCtrl.selectReviews);
+bnb.post('/booking', bnbCtrl.insertBooking);
 
 export default bnb;
