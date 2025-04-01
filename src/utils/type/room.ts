@@ -8,7 +8,8 @@ export interface IFile {
   file_type: string;
 }
 
-export interface IRoom extends IFile{
+export interface IRoom {
+    id: string;
     title: string;
     content: string;
     address?: string;
@@ -17,6 +18,13 @@ export interface IRoom extends IFile{
     lat?: number;
     lon?: number;
     images?: IFile[];
+    amenities?: string[];
+    service_fee?: number | null;
+    cleaning_fee?: number | null;
+    max_guests?: number | null;
+    reg_id?: string;
+    created_at?: Date;
+    updated_at?: Date;  
 }
   
 export interface IRoomForm{

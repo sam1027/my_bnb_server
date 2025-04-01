@@ -23,5 +23,6 @@ bnb.get('/codes', bnbCtrl.selectCodes);
 bnb.post('/review', bnbCtrl.insertReview);
 bnb.get('/review', bnbCtrl.selectReviews);
 bnb.post('/booking', bnbCtrl.insertBooking);
+bnb.get('/booking/detail', bnbCtrl.selectBookingDetail);
 
 export default bnb;

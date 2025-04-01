@@ -420,33 +420,12 @@ export const selectReviewsService = async (room_id:string) => {
 export const insertBookingService = async (body:any) => {
     const poolClient = await pool.connect();
 
-    // 숙소 정보 조회
-    const { rows } = await poolClient.query(`
-        SELECT 
-            id
-            , title
-            , content
-            , price
-            , reg_id
-            , lat
-            , lon
-            , address
-            , address_dtl
-            , service_fee
-            , cleaning_fee
-            , max_guests
-            , amenities
-            , created_at
-            , updated_at
-        FROM mybnb.tb_room
-        WHERE id = $1
-    `, [body.room_id]);
-
-    if (rows.length === 0) {
+    const roomResult = await selectRoomDetailService(body.room_id);
+    if (!roomResult || roomResult.length === 0) {
         throw new Error('숙소 정보를 찾을 수 없습니다.');
     }
 
-    const room = rows[0];
+    const room = roomResult[0];
 
     // 스냅샷 만들기
     const snapshot = {
@@ -462,7 +441,8 @@ export const insertBookingService = async (body:any) => {
         service_fee: room.service_fee,
         cleaning_fee: room.cleaning_fee,
         max_guests: room.max_guests,
-        amenities: room.amenities?.split(','),  // 배열로 변환
+        amenities: room.amenities, 
+        images: room.images,
         created_at: room.created_at,
         updated_at: room.updated_at
     };
@@ -486,6 +466,7 @@ export const insertBookingService = async (body:any) => {
             , $6
             , $7
         )
+        RETURNING id
         `;
 
     try {
@@ -503,9 +484,50 @@ export const insertBookingService = async (body:any) => {
         customLogger.customedInfo('Insert Booking Service');
 
         await poolClient.query('COMMIT');
-        return result.rowCount;
+        return result.rows[0].id;
     } catch (error) {
         customLogger.customedError(`Insert Booking Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+
+// 예약 상세 조회
+export const selectBookingDetailService = async (booking_id:string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        select b.id
+            , b.room_id
+            , b.reg_id
+            , u.name as reg_name
+            , u.email as reg_email
+            , b.checkin_dt
+            , b.checkout_dt
+            , b.guest_count
+            , b.total_price
+            , b.room_snapshot
+            , b.status
+            , c.code_name as status_name
+            , to_char(b.created_at, 'YYYY-MM-DD') as created_at 
+        from mybnb.tb_booking b
+        left join mybnb.tb_user u on u.id = b.reg_id
+        left join mybnb.tb_code c on c.code_id = b.status and c.code_group_id = 'BOOKING_STATUS'
+        where b.id = $1
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [booking_id]); 
+
+        customLogger.customedInfo('Select Booking Detail Service');
+
+        await poolClient.query('COMMIT');
+        return result.rows[0];
+    } catch (error) {
+        customLogger.customedError(`Select Booking Detail Service Error`)
         await poolClient.query('ROLLBACK');
         throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
     }finally{
