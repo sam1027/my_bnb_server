@@ -10,7 +10,8 @@ export const insertRoom = async (ctx:Context, next : () => void) => {
 }
 
 export const selectRooms = async (ctx:any, next : () => void) => {
-    const result = await selectRoomsService();
+    const { page, limit, search } = ctx.query;
+    const result = await selectRoomsService(page, limit, search);
     ctx.body = result;
 }
 

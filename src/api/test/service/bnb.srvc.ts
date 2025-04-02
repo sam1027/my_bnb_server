@@ -117,10 +117,18 @@ export const insertRoomService = async (body:any, files:any) => {
 }
 
 // 숙박업소 목록 조회
-export const selectRoomsService = async () => {
+export const selectRoomsService = async (page:number, limit:number, search:string) => {
     const poolClient = await pool.connect();
     // 숙박업소 목록 조회
     let sql = `
+        with rt as (
+            select 
+                rt.room_id
+                , round(avg(rt.rating), 1) as avg_rating
+                , count(rt.room_id) as review_count
+            from mybnb.tb_rating rt 
+            group by rt.room_id
+        )
         select 
             r.id
             , r.title
@@ -139,9 +147,14 @@ export const selectRoomsService = async () => {
                 when f.room_id is not null then true 
                 else false
                 end as liked
+            , rt.avg_rating
+            , rt.review_count
         from mybnb.tb_room r
         left join mybnb.tb_favorite f on r.id = f.room_id and r.reg_id = f.user_id
-        order by r.id desc`;
+		left join rt on rt.room_id = r.id
+        where r.title like '%' || $3 || '%'
+        order by r.id desc
+        limit $1 offset $2`;
 
     // 파일 목록 조회
     let fileSql = `
@@ -160,7 +173,7 @@ export const selectRoomsService = async () => {
     try {
         await poolClient.query('BEGIN');
 
-        const result = await poolClient.query(sql, []); 
+        const result = await poolClient.query(sql, [limit, (page - 1) * limit, search]); 
 
         const enrichedRooms = await Promise.all(
             result.rows.map(async (room) => {
@@ -203,6 +216,7 @@ export const selectRoomDetailService = async (id: string) => {
                 when f.room_id is not null then true 
                 else false
                 end as liked
+            , (select round(avg(rt.rating), 1) from mybnb.tb_rating rt where rt.room_id = r.id) as avg_rating
         from mybnb.tb_room r
         left join mybnb.tb_favorite f on r.id = f.room_id and r.reg_id = f.user_id
         where r.id = $1
