@@ -534,3 +534,30 @@ export const selectBookingDetailService = async (booking_id:string) => {
         poolClient.release();
     }
 }
+
+// 예약 상태 변경
+export const updateBookingStatusService = async (booking_id:string, status:string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        UPDATE mybnb.tb_booking
+        SET status = $1
+        WHERE id = $2
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [status, booking_id]); 
+
+        customLogger.customedInfo('Update Booking Status Service');
+
+        await poolClient.query('COMMIT');
+        return result.rowCount;
+    } catch (error) {
+        customLogger.customedError(`Update Booking Status Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}

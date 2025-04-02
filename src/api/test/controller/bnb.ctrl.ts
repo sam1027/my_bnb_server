@@ -1,4 +1,4 @@
-import { insertBookingService, insertReviewService, insertRoomService, selectBookingDetailService, selectCodesService, selectReviewsService, selectRoomDetailService, selectRoomsService, toggleFavoriteRoomService } from '../service/bnb.srvc';
+import { insertBookingService, insertReviewService, insertRoomService, selectBookingDetailService, selectCodesService, selectReviewsService, selectRoomDetailService, selectRoomsService, toggleFavoriteRoomService, updateBookingStatusService } from '../service/bnb.srvc';
 import { Context } from 'koa';
 import { File } from '@koa/multer';
 
@@ -53,5 +53,11 @@ export const insertBooking = async (ctx:any, next : () => void) => {
 export const selectBookingDetail = async (ctx:any, next : () => void) => {
     const { booking_id } = ctx.query; // get, delete 이런 애들은 url?param=파라미터 << 요렇게 붙어 오기 때문에 
     const result = await selectBookingDetailService(booking_id);
+    ctx.body = result;
+}
+
+export const updateBookingStatus = async (ctx:any, next : () => void) => {
+    const { booking_id, status } = ctx.request.body;
+    const result = await updateBookingStatusService(booking_id, status);
     ctx.body = result;
 }

@@ -24,5 +24,6 @@ bnb.post('/review', bnbCtrl.insertReview);
 bnb.get('/review', bnbCtrl.selectReviews);
 bnb.post('/booking', bnbCtrl.insertBooking);
 bnb.get('/booking/detail', bnbCtrl.selectBookingDetail);
+bnb.patch('/booking/status', bnbCtrl.updateBookingStatus);
 
 export default bnb;
