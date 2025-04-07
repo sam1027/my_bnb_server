@@ -1,6 +1,7 @@
 import pool from "@config/db";
 import { customLogger } from "@utils/lib/winston";
 import { IRoom } from "@utils/type/room";
+import { off } from "process";
 
 // 숙박업소 신규 등록
 export const insertRoomService = async (body:any, files:any) => {
@@ -173,7 +174,8 @@ export const selectRoomsService = async (page:number, limit:number, search:strin
     try {
         await poolClient.query('BEGIN');
 
-        const result = await poolClient.query(sql, [limit, (page - 1) * limit, search]); 
+        const offset = (page - 1) * limit;
+        const result = await poolClient.query(sql, [limit, offset, search]); 
 
         const enrichedRooms = await Promise.all(
             result.rows.map(async (room) => {
@@ -204,6 +206,8 @@ export const selectRoomDetailService = async (id: string) => {
             , r.content
             , r.price
             , r.reg_id
+            , u.name as reg_name
+            , u.email as reg_email
             , r.lat
             , r.lon
             , r.address
@@ -219,6 +223,7 @@ export const selectRoomDetailService = async (id: string) => {
             , (select round(avg(rt.rating), 1) from mybnb.tb_rating rt where rt.room_id = r.id) as avg_rating
         from mybnb.tb_room r
         left join mybnb.tb_favorite f on r.id = f.room_id and r.reg_id = f.user_id
+        left join mybnb.tb_user u on u.id = r.reg_id
         where r.id = $1
         order by r.id desc`;
 
@@ -448,6 +453,8 @@ export const insertBookingService = async (body:any) => {
         content: room.content,
         price: room.price,
         reg_id: room.reg_id,
+        reg_name: room.reg_name,
+        reg_email: room.reg_email,
         lat: room.lat,
         lon: room.lon,
         address: room.address,
@@ -569,6 +576,58 @@ export const updateBookingStatusService = async (booking_id:string, status:strin
         return result.rowCount;
     } catch (error) {
         customLogger.customedError(`Update Booking Status Service Error`)
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+
+// 예약 목록 조회
+export const selectBookingsService = async (page:number, limit:number, search:string, status:string, sort:string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        select b.id
+            , b.room_id
+            , b.reg_id
+            , u.name as reg_name
+            , u.email as reg_email
+            , b.checkin_dt
+            , b.checkout_dt
+            , b.guest_count
+            , b.total_price
+            , b.room_snapshot
+            , b.status
+            , c.code_name as status_name
+            , to_char(b.created_at, 'YYYY-MM-DD') as created_at 
+        from mybnb.tb_booking b
+        left join mybnb.tb_user u on u.id = b.reg_id
+        left join mybnb.tb_code c on c.code_id = b.status and c.code_group_id = 'BOOKING_STATUS'
+        where 
+            b.reg_id = $1
+            and b.room_snapshot->>'title' like '%' || $2 || '%'`;
+    if (status === 'upcoming') {
+        sql += `and b.status = 'confirmed'`;
+    }else if (status === 'completed') {
+        sql += `and b.status != 'confirmed'`;
+    }
+    sql += `order by b.id ${sort}
+        limit $3 offset $4
+    `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const offset = (page - 1) * limit;
+        // TODO: 임시로 1번 유저로 고정
+        const result = await poolClient.query(sql, [1, search, limit, offset]); 
+
+        customLogger.customedInfo('Select Bookings Service');
+
+        await poolClient.query('COMMIT');
+        return result.rows;
+    } catch (error) {
+        customLogger.customedError(`Select Bookings Service Error`)
         await poolClient.query('ROLLBACK');
         throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
     }finally{

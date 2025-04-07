@@ -23,6 +23,8 @@ export interface IRoom {
     cleaning_fee?: number | null;
     max_guests?: number | null;
     reg_id?: string;
+    reg_name?: string;
+    reg_email?: string;
     created_at?: Date;
     updated_at?: Date;  
 }
