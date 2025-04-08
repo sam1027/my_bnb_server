@@ -177,6 +177,8 @@ export const selectRoomsService = async (page:number, limit:number, search:strin
         const offset = (page - 1) * limit;
         const result = await poolClient.query(sql, [limit, offset, search]); 
 
+        console.log(result.rows);
+
         const enrichedRooms = await Promise.all(
             result.rows.map(async (room) => {
               const fileRslt = await poolClient.query(fileSql, [room.id]);
