@@ -46,4 +46,20 @@ bnb.patch('/booking/status', bnbCtrl.updateBookingStatus);
 // 예약 목록 조회
 bnb.get('/booking', bnbCtrl.selectBookings);
 
+// 이메일 중복 체크
+bnb.get('/account/check/email', bnbCtrl.checkEmail);
+
+// 회원 가입
+// bnb.post('/account/signup', bnbCtrl.signup);
+
+// 로그인
+// bnb.post('/account/login', bnbCtrl.login);
+
+// 로그아웃
+// bnb.post('/account/logout', bnbCtrl.logout);
+
+// 회원 정보 조회
+// bnb.get('/account/info', bnbCtrl.getAccountInfo);
+
+
 export default bnb;

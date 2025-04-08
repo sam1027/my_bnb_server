@@ -634,3 +634,31 @@ export const selectBookingsService = async (page:number, limit:number, search:st
         poolClient.release();
     }
 }
+
+// 이메일 중복 체크
+export const checkEmailService = async (email:string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        select count(*) as count
+        from mybnb.tb_user
+        where email = $1
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [email]); 
+
+        customLogger.customedInfo(`Check Email Service : ${email}`);
+
+        await poolClient.query('COMMIT');
+        return result.rows[0].count > 0;
+    } catch (error) {
+        customLogger.customedError(`Check Email Service Error : ${error}`);
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+        
+}

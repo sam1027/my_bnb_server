@@ -1,4 +1,4 @@
-import { insertBookingService, insertReviewService, insertRoomService, selectBookingDetailService, selectBookingsService, selectCodesService, selectReviewsService, selectRoomDetailService, selectRoomsService, toggleFavoriteRoomService, updateBookingStatusService } from '../service/bnb.srvc';
+import { checkEmailService, insertBookingService, insertReviewService, insertRoomService, selectBookingDetailService, selectBookingsService, selectCodesService, selectReviewsService, selectRoomDetailService, selectRoomsService, toggleFavoriteRoomService, updateBookingStatusService } from '../service/bnb.srvc';
 import { Context } from 'koa';
 import { File } from '@koa/multer';
 
@@ -76,5 +76,12 @@ export const updateBookingStatus = async (ctx:any, next : () => void) => {
 export const selectBookings = async (ctx:any, next : () => void) => {
     const { page, limit, search, status, sort } = ctx.query;
     const result = await selectBookingsService(page, limit, search, status, sort);
+    ctx.body = result;
+}
+
+// 이메일 중복 체크
+export const checkEmail = async (ctx:any, next : () => void) => {
+    const { email } = ctx.query;
+    const result = await checkEmailService(email);
     ctx.body = result;
 }
