@@ -1,7 +1,6 @@
 import pool from "@config/db";
 import { customLogger } from "@utils/lib/winston";
 import { IRoom } from "@utils/type/room";
-import { off } from "process";
 
 // 숙박업소 신규 등록
 export const insertRoomService = async (body:any, files:any) => {
@@ -663,4 +662,60 @@ export const checkEmailService = async (email:string) => {
         poolClient.release();
     }
         
+}
+
+// 회원정보 조회
+export const getUserByEmail = async (email: string) => {
+    const poolClient = await pool.connect();
+    let sql = `
+        select *
+        from mybnb.tb_user
+        where email = $1
+        `;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [email]); 
+
+        customLogger.customedInfo(`Check Email Service : ${email}`);
+
+        await poolClient.query('COMMIT');
+        return result.rows[0];
+    } catch (error) {
+        customLogger.customedError(`Check Email Service Error : ${error}`);
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
+}
+
+// 회원가입
+export const signupService = async (body:any) => {
+    const { name, email, password } = body;
+    const poolClient = await pool.connect();
+    let sql = `
+        insert into mybnb.tb_user (
+            name, email, password, role
+        ) values (
+            $1, $2, $3, 'ROLE_GUEST'
+        )`;
+
+    try {
+        await poolClient.query('BEGIN');
+
+        const result = await poolClient.query(sql, [name, email, password]); 
+
+        customLogger.customedInfo(`Signup Service : ${email}`);
+
+        await poolClient.query('COMMIT');
+        return result.rowCount;
+    } catch (error) {
+        customLogger.customedError(`Signup Service Error : ${error}`);
+        await poolClient.query('ROLLBACK');
+        throw error; // 에러를 던져서 상위에서 핸들링 가능하도록 설정
+    }finally{
+        poolClient.release();
+    }
 }

@@ -1,6 +1,10 @@
-import { checkEmailService, insertBookingService, insertReviewService, insertRoomService, selectBookingDetailService, selectBookingsService, selectCodesService, selectReviewsService, selectRoomDetailService, selectRoomsService, toggleFavoriteRoomService, updateBookingStatusService } from '../service/bnb.srvc';
+import { checkEmailService, getUserByEmail, insertBookingService, insertReviewService, insertRoomService, selectBookingDetailService, selectBookingsService, selectCodesService, selectReviewsService, selectRoomDetailService, selectRoomsService, signupService, toggleFavoriteRoomService, updateBookingStatusService } from '../service/bnb.srvc';
 import { Context } from 'koa';
 import { File } from '@koa/multer';
+import bcrypt from 'bcryptjs';
+import { generateRefreshToken } from '@utils/auth/jwt';
+import { generateAccessToken } from '@utils/auth/jwt';
+import jwt from 'jsonwebtoken';
 
 // 숙박업소 신규 등록
 export const insertRoom = async (ctx:Context, next : () => void) => {
@@ -84,4 +88,62 @@ export const checkEmail = async (ctx:any, next : () => void) => {
     const { email } = ctx.query;
     const result = await checkEmailService(email);
     ctx.body = result;
+}
+
+// 회원가입
+export const signup = async (ctx:any, next : () => void) => {
+    const { name, email, password } = ctx.request.body;
+    const hashedPwd = await bcrypt.hash(password, 10);
+    const result = await signupService({name, email, password:hashedPwd});
+    ctx.body = result;
+}
+
+// 로그인
+export const login = async (ctx:any, next : () => void) => {
+    const { email, password } = ctx.request.body;
+    const user = await getUserByEmail(email);
+    if (!user) {
+        ctx.status = 401;
+        ctx.body = { message: '사용자를 찾을 수 없습니다.' };
+        return;
+    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        ctx.status = 401;
+        ctx.body = { message: '비밀번호가 틀렸습니다.' };
+        return;
+    }
+
+    const accessToken = generateAccessToken({ id: user.id, name: user.name, email: user.email, role: user.role });
+    const refreshToken = generateRefreshToken({ id: user.id });
+
+    ctx.cookies.set('refreshToken', refreshToken, {
+        httpOnly: true,
+        sameSite: 'None',
+        secure: process.env.NODE_ENV === 'REMOTE',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7일
+    })
+
+    ctx.body = { accessToken, message: '로그인이 성공적으로 완료되었습니다.' };
+}
+
+// 토큰 재발급
+export const refreshToken = async (ctx:any, next : () => void) => {
+    const refreshToken = ctx.cookies.get('refreshToken');
+
+    if (!refreshToken) {
+        ctx.status = 401;
+        ctx.body = { message: 'refreshToken이 없습니다.' };
+        return;
+    }
+
+    try {
+        const SECRET = process.env.JWT_SECRET || 'secret';
+        const payload = jwt.verify(refreshToken, SECRET) as jwt.JwtPayload;
+        const newAccessToken = generateAccessToken({ id: payload.id, name: payload.name, email: payload.email, role: payload.role });
+        ctx.body = { accessToken: newAccessToken };
+    } catch (err) {
+        ctx.status = 403;
+        ctx.body = { message: 'refreshToken이 유효하지 않음' };
+    }
 }
