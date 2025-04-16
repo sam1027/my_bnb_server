@@ -16,7 +16,7 @@ bnb.get('/', optionalAuthMw, bnbCtrl.selectRooms);
 bnb.get('/detail', bnbCtrl.selectRoomDetail);
 
 // 숙박업소 즐겨찾기 토글
-bnb.post('/favorite', ...onlyGuest, bnbCtrl.toggleFavoriteRoom);
+bnb.post('/favorite', authMw, bnbCtrl.toggleFavoriteRoom);
 
 // 코드 목록 조회
 bnb.get('/codes', bnbCtrl.selectCodes);
