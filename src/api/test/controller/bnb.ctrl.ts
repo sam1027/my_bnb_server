@@ -82,6 +82,7 @@ export const updateBookingStatus = async (ctx:any, next : () => void) => {
     ctx.body = result;
 }
 
+// 예약 목록 조회
 export const selectBookings = async (ctx:any, next : () => void) => {
     const { page, limit, search, status, sort } = ctx.query;
     const user = ctx.state.user;

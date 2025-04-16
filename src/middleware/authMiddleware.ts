@@ -12,18 +12,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-export const multerToKoa = (multerMiddleware: any) => {
-  return async (ctx: Context, next: Next) => {
-    await new Promise<void>((resolve, reject) => {
-      multerMiddleware(ctx.req, ctx.res, (err: any) => {
-        if (err) return reject(err);
-        resolve();
-      });
-    });
-    await next();
-  };
-};
-
 // 토큰 검증 미들웨어
 export const authMw: Middleware<StateWithUser> = async (ctx: any, next: any)=> {
   const authHeader = ctx.headers['authorization'];
@@ -99,7 +87,7 @@ const roleMw = (requiredRoles: string[]): Middleware<StateWithUser> => {
 // 토큰 검증 및 파일 업로드 미들웨어 조합 함수
 export const authAndUpload = [
   authMw,
-  multerToKoa(upload.array('images', 10)),
+  upload.array('images', 10)
 ];
 
 export const onlyAdmin: Middleware<StateWithUser>[] = [authMw, roleMw(['ROLE_ADMIN'])];
