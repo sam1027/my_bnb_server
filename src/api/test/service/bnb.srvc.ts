@@ -3,7 +3,7 @@ import { customLogger } from "@utils/lib/winston";
 import { IRoom } from "@utils/type/room";
 
 // 숙박업소 신규 등록
-export const insertRoomService = async (body:any, files:any) => {
+export const insertRoomService = async (body:any, files:any, user:any) => {
     const poolClient = await pool.connect();
     const roomInsertSql = `
         INSERT INTO mybnb.tb_room (
@@ -77,7 +77,7 @@ export const insertRoomService = async (body:any, files:any) => {
             body.title
             , body.content
             , body.price
-            , 1 // TODO: 임시로 1번 유저로 고정
+            , user.id
             , body.lat
             , body.lon
             , body.address
@@ -117,7 +117,7 @@ export const insertRoomService = async (body:any, files:any) => {
 }
 
 // 숙박업소 목록 조회
-export const selectRoomsService = async (page:number, limit:number, search:string) => {
+export const selectRoomsService = async (user:any, page:number, limit:number, search:string) => {
     const poolClient = await pool.connect();
     // 숙박업소 목록 조회
     let sql = `
@@ -144,14 +144,18 @@ export const selectRoomsService = async (page:number, limit:number, search:strin
             , r.max_guests
             , r.amenities
             , case
+                ${!user? ' when true then false ' : ''}            
                 when f.room_id is not null then true 
                 else false
                 end as liked
             , rt.avg_rating
             , rt.review_count
         from mybnb.tb_room r
-        left join mybnb.tb_favorite f on r.id = f.room_id and r.reg_id = f.user_id
-		left join rt on rt.room_id = r.id
+        left join mybnb.tb_favorite f on r.id = f.room_id `;
+
+    if(user) sql += 'and f.user_id = $4 ';
+
+	sql += `left join rt on rt.room_id = r.id
         where r.title like '%' || $3 || '%'
         order by r.id desc
         limit $1 offset $2`;
@@ -174,7 +178,9 @@ export const selectRoomsService = async (page:number, limit:number, search:strin
         await poolClient.query('BEGIN');
 
         const offset = (page - 1) * limit;
-        const result = await poolClient.query(sql, [limit, offset, search]); 
+        let params = [limit, offset, search];
+        if(user) params.push(user.id);
+        const result = await poolClient.query(sql, params); 
 
         console.log(result.rows);
 
@@ -280,7 +286,7 @@ export const selectRoomDetailService = async (id: string) => {
 }
 
 // 좋아요 설정/해제 처리
-export const toggleFavoriteRoomService = async (body:any) => {
+export const toggleFavoriteRoomService = async (body:any, user:any) => {
     const poolClient = await pool.connect();
 
     const SELECT_SQL = `
@@ -303,20 +309,20 @@ export const toggleFavoriteRoomService = async (body:any) => {
 
         const existsResult = await poolClient.query(SELECT_SQL, [
             body.roomId,
-            1, // TODO: 임시로 1번 유저로 고정
+            user.id
         ]);
 
         let result;
         if (Number(existsResult.rowCount) > 0) {
             result = await poolClient.query(DELETE_SQL, [
               body.roomId,
-              1, // TODO: 임시로 1번 유저로 고정
+              user.id
             ]);
             customLogger.customedInfo('toggleFavoriteRoomService - 찜 삭제 (UNFAVORITE)');
         } else {
             result = await poolClient.query(INSERT_SQL, [
               body.roomId,
-              1, // TODO: 임시로 1번 유저로 고정
+              user.id
             ]);
             customLogger.customedInfo('toggleFavoriteRoomService - 찜 등록 (FAVORITE)');
         }
@@ -333,13 +339,14 @@ export const toggleFavoriteRoomService = async (body:any) => {
 }
 
 // 공통코드 목록 조회
-export const selectCodesService = async (code_group_id:string) => {
+export const selectCodesService = async (code_group_id:string, code_id?:string) => {
     const poolClient = await pool.connect();
     let sql = `
         select code_id
             , code_name
         from mybnb.tb_code
         where code_group_id = $1
+        ${code_id ? ' and code_id = $2 ' : ''}
         and use_yn = true
         order by code_order
         `;
@@ -347,7 +354,9 @@ export const selectCodesService = async (code_group_id:string) => {
     try {
         await poolClient.query('BEGIN');
 
-        const result = await poolClient.query(sql, [code_group_id]); 
+        let params = [code_group_id];
+        if(code_id) params.push(code_id)
+        const result = await poolClient.query(sql, params); 
 
         customLogger.customedInfo('Select Codes Service');
 
@@ -363,7 +372,7 @@ export const selectCodesService = async (code_group_id:string) => {
 };
 
 // 후기 등록
-export const insertReviewService = async (body:any) => {
+export const insertReviewService = async (body:any, user:any) => {
     const poolClient = await pool.connect();
     const sql = `
         INSERT INTO mybnb.tb_rating (
@@ -384,7 +393,7 @@ export const insertReviewService = async (body:any) => {
 
         const result = await poolClient.query(sql, [
             body.room_id
-            , '1' // TODO: 임시로 1번 유저로 고정
+            , user.id
             , body.rating
             , body.comment
         ]); 
@@ -437,7 +446,7 @@ export const selectReviewsService = async (room_id:string) => {
 }
 
 // 예약 등록
-export const insertBookingService = async (body:any) => {
+export const insertBookingService = async (body:any, user:any) => {
     const poolClient = await pool.connect();
 
     const roomResult = await selectRoomDetailService(body.room_id);
@@ -496,7 +505,7 @@ export const insertBookingService = async (body:any) => {
 
         const result = await poolClient.query(inserSql, [
             body.room_id
-            , '1' // TODO: 임시로 1번 유저로 고정
+            , user.id
             , body.checkin_dt
             , body.checkout_dt
             , body.guest_count
@@ -585,7 +594,7 @@ export const updateBookingStatusService = async (booking_id:string, status:strin
 }
 
 // 예약 목록 조회
-export const selectBookingsService = async (page:number, limit:number, search:string, status:string, sort:string) => {
+export const selectBookingsService = async (user:any, page:number, limit:number, search:string, status:string, sort:string) => {
     const poolClient = await pool.connect();
     let sql = `
         select b.id
@@ -620,8 +629,7 @@ export const selectBookingsService = async (page:number, limit:number, search:st
         await poolClient.query('BEGIN');
 
         const offset = (page - 1) * limit;
-        // TODO: 임시로 1번 유저로 고정
-        const result = await poolClient.query(sql, [1, search, limit, offset]); 
+        const result = await poolClient.query(sql, [user.id, search, limit, offset]); 
 
         customLogger.customedInfo('Select Bookings Service');
 

@@ -10,14 +10,16 @@ import jwt from 'jsonwebtoken';
 export const insertRoom = async (ctx:Context, next : () => void) => {
     const files = ctx.request.files as File[]; // 이미지들
     const body = ctx.request.body; // post,put 이런애들은 바디에 붙어와서
-    const result = await insertRoomService(body, files);
+    const user = ctx.state.user;
+    const result = await insertRoomService(body, files, user);
     ctx.body = result;
 }
 
 // 숙박업소 목록 조회
 export const selectRooms = async (ctx:any, next : () => void) => {
     const { page, limit, search } = ctx.query;
-    const result = await selectRoomsService(page, limit, search);
+    const user = ctx.state.user;
+    const result = await selectRoomsService(user, page, limit, search);
     ctx.body = result;
 }
 
@@ -31,7 +33,8 @@ export const selectRoomDetail = async (ctx:any, next : () => void) => {
 // 숙박업소 즐겨찾기 토글
 export const toggleFavoriteRoom = async (ctx:any, next : () => void) => {
     const body = ctx.request.body; // post,put 이런애들은 바디에 붙어와서
-    const result = await toggleFavoriteRoomService(body);
+    const user = ctx.state.user;
+    const result = await toggleFavoriteRoomService(body, user);
     ctx.body = result;
 }
 
@@ -45,7 +48,8 @@ export const selectCodes = async (ctx:any, next : () => void) => {
 // 리뷰 등록
 export const insertReview = async (ctx:any, next : () => void) => {
     const body = ctx.request.body; // post,put 이런애들은 바디에 붙어와서
-    const result = await insertReviewService(body);
+    const user = ctx.state.user;
+    const result = await insertReviewService(body, user);
     ctx.body = result;
 }
 
@@ -59,7 +63,8 @@ export const selectReviews = async (ctx:any, next : () => void) => {
 // 예약 등록
 export const insertBooking = async (ctx:any, next : () => void) => {
     const body = ctx.request.body; // post,put 이런애들은 바디에 붙어와서
-    const result = await insertBookingService(body);
+    const user = ctx.state.user;
+    const result = await insertBookingService(body, user);
     ctx.body = result;
 }
 
@@ -79,7 +84,8 @@ export const updateBookingStatus = async (ctx:any, next : () => void) => {
 
 export const selectBookings = async (ctx:any, next : () => void) => {
     const { page, limit, search, status, sort } = ctx.query;
-    const result = await selectBookingsService(page, limit, search, status, sort);
+    const user = ctx.state.user;
+    const result = await selectBookingsService(user, page, limit, search, status, sort);
     ctx.body = result;
 }
 

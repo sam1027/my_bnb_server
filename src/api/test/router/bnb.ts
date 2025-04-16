@@ -1,20 +1,22 @@
-import { authAndUpload, authMw } from './../../../middleware/authMiddleware';
+import { authAndUpload, authMw, onlyGuest, optionalAuthMw } from './../../../middleware/authMiddleware';
 import Router from 'koa-router';
 import * as bnbCtrl from 'api/test/controller/bnb.ctrl';
+import { StateWithUser } from '@utils/type/auth';
+import { DefaultContext } from 'koa';
 
-const bnb = new Router();
+const bnb = new Router<StateWithUser, DefaultContext>();
 
 // 숙박업소 신규 등록
-bnb.post('/', authAndUpload, bnbCtrl.insertRoom);
+bnb.post('/', ...authAndUpload, bnbCtrl.insertRoom);
 
 // 숙박업소 목록 조회
-bnb.get('/', bnbCtrl.selectRooms);
+bnb.get('/', optionalAuthMw, bnbCtrl.selectRooms);
 
 // 숙박업소 상세 조회
 bnb.get('/detail', bnbCtrl.selectRoomDetail);
 
 // 숙박업소 즐겨찾기 토글
-bnb.post('/favorite', authMw, bnbCtrl.toggleFavoriteRoom);
+bnb.post('/favorite', ...onlyGuest, bnbCtrl.toggleFavoriteRoom);
 
 // 코드 목록 조회
 bnb.get('/codes', bnbCtrl.selectCodes);

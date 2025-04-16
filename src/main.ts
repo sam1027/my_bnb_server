@@ -1,6 +1,6 @@
 require('dotenv').config();
 import dotenv from "dotenv";
-import Koa from 'koa';
+import Koa, { DefaultContext } from 'koa';
 import Router from 'koa-router';
 import bodyParser from 'koa-bodyparser';
 import cors from '@koa/cors'
@@ -11,6 +11,8 @@ import fs from 'fs';
 import api from "@routes/router";
 
 import client from 'config/db';
+import { errorHandler } from "middleware/errorHandler";
+import { StateWithUser } from "@utils/type/auth";
 
 dotenv.config();
 const { PORT,NODE_ENV,HOST_URL_DEV,HOST_URL_PROD } = process.env;
@@ -35,7 +37,7 @@ const app = new Koa();
 app.use(require('koa-mount')('/public/uploads', serve(path.join(__dirname, '../public/uploads'))));
 app.use(serve(path.join(__dirname, '../public'))); // 실제 파일 시스템 경로
 
-const router = new Router();
+const router = new Router<StateWithUser, DefaultContext>();
 router.use(api.routes()); // api 라우트 적용
 
 
@@ -56,6 +58,7 @@ app.use(bodyParser({
     detectJSON: ctx => !ctx.is('multipart/form-data')
 }));
 
+app.use(errorHandler);
 app.use(router.routes()).use(router.allowedMethods());
 
 
